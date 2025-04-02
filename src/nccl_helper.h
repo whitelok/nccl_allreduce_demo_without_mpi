@@ -2,6 +2,7 @@
 
 #include <cuda_runtime.h>
 #include <nccl.h>
+#include <utils.h>
 #include <iostream>
 #include <mutex>
 #include <sstream>
@@ -34,35 +35,35 @@
 #define NCCLCHECK(cmd) NCCL_CHECK(cmd)
 
 // 线程安全的日志
-class Logger {
- private:
-  static std::mutex mutex;
-  int nodeRank;
+// class Logger {
+//  private:
+//   static std::mutex mutex;
+//   int nodeRank;
 
- public:
-  Logger(int nodeRank = 0) : nodeRank(nodeRank) {}
+//  public:
+//   Logger(int nodeRank = 0) : nodeRank(nodeRank) {}
 
-  template <typename T>
-  static void log(const T& msg) {
-    std::lock_guard<std::mutex> lock(mutex);
-    std::cout << msg << std::endl;
-  }
+//   template <typename T>
+//   static void log(const T& msg) {
+//     std::lock_guard<std::mutex> lock(mutex);
+//     std::cout << msg << std::endl;
+//   }
 
-  template <typename T>
-  void nodeLog(const T& msg) {
-    std::lock_guard<std::mutex> lock(mutex);
-    std::cout << "[Node " << nodeRank << "] " << msg << std::endl;
-  }
+//   template <typename T>
+//   void nodeLog(const T& msg) {
+//     std::lock_guard<std::mutex> lock(mutex);
+//     std::cout << "[Node " << nodeRank << "] " << msg << std::endl;
+//   }
 
-  template <typename T, typename... Args>
-  void nodeLog(const T& msg, Args... args) {
-    std::ostringstream oss;
-    oss << msg;
-    nodeLog(oss.str(), args...);
-  }
-};
+//   template <typename T, typename... Args>
+//   void nodeLog(const T& msg, Args... args) {
+//     std::ostringstream oss;
+//     oss << msg;
+//     nodeLog(oss.str(), args...);
+//   }
+// };
 
-std::mutex Logger::mutex;
+// std::mutex Logger::mutex;
 
 // 设备选择和初始化辅助函数
 class NCCLHelper {
