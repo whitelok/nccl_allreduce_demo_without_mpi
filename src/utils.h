@@ -40,7 +40,7 @@ class Logger {
   // 线程安全日志输出
   template <typename T>
   static void log(const T& msg) {
-    std::lock_guard<std::mutex> lock(mutex);
+    // std::lock_guard<std::mutex> lock(mutex);
     std::cout << msg << std::endl;
   }
 
