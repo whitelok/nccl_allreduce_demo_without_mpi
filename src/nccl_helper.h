@@ -60,7 +60,6 @@
 //   }
 // };
 
-
 class NCCLHelper {
  public:
   static int getDeviceCount() {

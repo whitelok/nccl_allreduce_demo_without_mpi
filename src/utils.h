@@ -56,7 +56,6 @@ class Logger {
   static void logHelper(std::ostringstream& oss) { log(oss.str()); }
 };
 
-
 class Barrier {
  private:
   std::mutex mutex;
