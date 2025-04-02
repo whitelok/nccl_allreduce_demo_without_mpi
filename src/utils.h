@@ -2,6 +2,7 @@
 
 #include <cuda_runtime.h>
 #include <nccl.h>
+#include <condition_variable>
 #include <iostream>
 #include <mutex>
 #include <sstream>
