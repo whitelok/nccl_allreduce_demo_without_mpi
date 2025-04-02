@@ -61,7 +61,7 @@ class Logger {
   static void logHelper(std::ostringstream& oss) { log(oss.str()); }
 };
 
-std::mutex Logger::mutex;
+// std::mutex Logger::mutex;
 
 // 同步屏障 - 用于线程间同步
 class Barrier {
