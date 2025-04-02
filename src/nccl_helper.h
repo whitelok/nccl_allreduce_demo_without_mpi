@@ -32,34 +32,6 @@
 
 #define NCCLCHECK(cmd) NCCL_CHECK(cmd)
 
-// class Logger {
-//  private:
-//   static std::mutex mutex;
-//   int nodeRank;
-
-//  public:
-//   Logger(int nodeRank = 0) : nodeRank(nodeRank) {}
-
-//   template <typename T>
-//   static void log(const T& msg) {
-//     std::lock_guard<std::mutex> lock(mutex);
-//     std::cout << msg << std::endl;
-//   }
-
-//   template <typename T>
-//   void nodeLog(const T& msg) {
-//     std::lock_guard<std::mutex> lock(mutex);
-//     std::cout << "[Node " << nodeRank << "] " << msg << std::endl;
-//   }
-
-//   template <typename T, typename... Args>
-//   void nodeLog(const T& msg, Args... args) {
-//     std::ostringstream oss;
-//     oss << msg;
-//     nodeLog(oss.str(), args...);
-//   }
-// };
-
 class NCCLHelper {
  public:
   static int getDeviceCount() {
