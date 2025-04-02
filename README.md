@@ -1,30 +1,32 @@
-### NCCL多机多卡通讯样例（无MPI版）
+# NCCL Multi-Node Multi-GPU Communication Example (MPI-free)
 
-每个机器一个进程，每个进程通过多线程管理这个机器上的多个GPU，一个线程管理一个GPU。
+This project demonstrates NCCL-based communication across multiple nodes and GPUs without requiring MPI. Each node runs a single process that manages multiple GPUs through multi-threading, with one dedicated thread per GPU.
 
-### 运行
+## Building and Running
 
 ```bash
-# 创建并进入构建目录
+# Create and enter build directory
 mkdir -p build && cd build
 
-# 配置CMake项目
+# Configure CMake project
 cmake ..
 
-# 编译
+# Compile
 cmake --build .
 
-#主节点上运行
-./nccl_multi_node_demo --rank 0 --nproc 2 --port [通讯用的端口] --size [传输的数据大小]
+# Run on the master node
+./nccl_multi_node_demo --rank 0 --nproc 2 --port [communication_port] --size [data_size]
 
-#worker节点上运行
-./nccl_multi_node_demo --rank 1 --nproc 2 --master [主节点IP] --port [通讯用的端口] --size [传输的数据大小]
+# Run on worker nodes
+./nccl_multi_node_demo --rank 1 --nproc 2 --master [master_node_IP] --port [communication_port] --size [data_size]
 ```
 
-### 主节点运行结果
+## Results
 
-https://github.com/whitelok/nccl_allreduce_demo_without_mpi/blob/master/imgs/master.png?raw=true
+### Master Node Output
 
-### worker节点运行结果
+![Master Node Results](https://github.com/whitelok/nccl_allreduce_demo_without_mpi/blob/master/imgs/master.png?raw=true "Master Node Results")
 
-https://github.com/whitelok/nccl_allreduce_demo_without_mpi/blob/master/imgs/worker.png?raw=true
+### Worker Node Output
+
+![Worker Node Results](https://github.com/whitelok/nccl_allreduce_demo_without_mpi/blob/master/imgs/worker.png?raw=true "Worker Node Results")
