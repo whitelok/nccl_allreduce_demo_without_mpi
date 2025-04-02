@@ -20,3 +20,9 @@ cmake --build .
 #worker节点上运行
 ./nccl_multi_node_demo --rank 1 --nproc 2 --master [主节点IP] --port [通讯用的端口] --size [传输的数据大小]
 ```
+
+### 主节点运行结果
+
+
+
+### worker节点运行结果
