@@ -23,6 +23,8 @@ cmake --build .
 
 ### 主节点运行结果
 
-
+https://github.com/whitelok/nccl_allreduce_demo_without_mpi/blob/master/imgs/master.png?raw=true
 
 ### worker节点运行结果
+
+https://github.com/whitelok/nccl_allreduce_demo_without_mpi/blob/master/imgs/worker.png?raw=true
