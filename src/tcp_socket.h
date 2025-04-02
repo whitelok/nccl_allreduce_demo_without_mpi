@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nccl.h>
 #include <memory>
 #include <string>
 #include <vector>
