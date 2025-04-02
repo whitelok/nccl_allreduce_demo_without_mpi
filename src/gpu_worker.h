@@ -87,5 +87,5 @@ class GPUWorkerManager {
 
   // GPU工作线程函数
   static void gpuWorkerThread(GPUContext& ctx, Barrier& initBarrier, Barrier& syncBarrier, std::atomic<bool>& initError,
-                              int iterations);
+                              int iterations, const ncclUniqueId& ncclId);
 };

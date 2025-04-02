@@ -44,7 +44,7 @@ bool GPUWorkerManager::runAllreduce(const ncclUniqueId& ncclId) {
   // 启动GPU工作线程
   for (int i = 0; i < deviceCount; i++) {
     threads.emplace_back(gpuWorkerThread, std::ref(contexts[i]), std::ref(*initBarrier), std::ref(*syncBarrier),
-                         std::ref(initError), iterations);
+                         std::ref(initError), iterations, std::ref(ncclId));
   }
 
   // 等待所有线程完成
@@ -77,7 +77,7 @@ void GPUWorkerManager::getPerformanceStats(double& avgTime, double& avgBandwidth
 }
 
 void GPUWorkerManager::gpuWorkerThread(GPUContext& ctx, Barrier& initBarrier, Barrier& syncBarrier,
-                                       std::atomic<bool>& initError, int iterations) {
+                                       std::atomic<bool>& initError, int iterations, const ncclUniqueId& ncclId) {
   try {
     // 设置当前线程的CUDA设备
     CUDA_CHECK(cudaSetDevice(ctx.deviceId));
