@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(nccl_multi_node_demo LANGUAGES CXX CUDA)
 
 # 设置C++标准
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 查找CUDA
