@@ -10,7 +10,6 @@
 #include <string>
 #include <vector>
 
-// CUDA错误检查
 #define CUDA_CHECK(cmd)                                                                                    \
   do {                                                                                                     \
     cudaError_t err = cmd;                                                                                 \
@@ -21,7 +20,6 @@
     }                                                                                                      \
   } while (0)
 
-// NCCL错误检查
 #define NCCL_CHECK(cmd)                                                                                    \
   do {                                                                                                     \
     ncclResult_t res = cmd;                                                                                \
@@ -34,7 +32,6 @@
 
 #define NCCLCHECK(cmd) NCCL_CHECK(cmd)
 
-// 线程安全的日志
 // class Logger {
 //  private:
 //   static std::mutex mutex;
@@ -63,19 +60,15 @@
 //   }
 // };
 
-// std::mutex Logger::mutex;
 
-// 设备选择和初始化辅助函数
 class NCCLHelper {
  public:
-  // 获取当前节点上的GPU数量
   static int getDeviceCount() {
     int deviceCount;
     CUDA_CHECK(cudaGetDeviceCount(&deviceCount));
     return deviceCount;
   }
 
-  // 打印GPU信息
   static void printDeviceInfo(int deviceId, int globalRank) {
     cudaDeviceProp prop;
     CUDA_CHECK(cudaGetDeviceProperties(&prop, deviceId));

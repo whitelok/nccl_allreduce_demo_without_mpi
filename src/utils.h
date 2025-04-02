@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 
-// CUDA错误检查宏
 #define CUDA_CHECK(cmd)                                                                                    \
   do {                                                                                                     \
     cudaError_t err = cmd;                                                                                 \
@@ -20,7 +19,6 @@
     }                                                                                                      \
   } while (0)
 
-// NCCL错误检查宏
 #define NCCL_CHECK(cmd)                                                                                    \
   do {                                                                                                     \
     ncclResult_t res = cmd;                                                                                \
@@ -31,16 +29,13 @@
     }                                                                                                      \
   } while (0)
 
-// 线程安全的日志记录器
 class Logger {
  private:
   static std::mutex mutex;
 
  public:
-  // 线程安全日志输出
   template <typename T>
   static void log(const T& msg) {
-    // std::lock_guard<std::mutex> lock(mutex);
     std::cout << msg << std::endl;
   }
 
@@ -61,9 +56,7 @@ class Logger {
   static void logHelper(std::ostringstream& oss) { log(oss.str()); }
 };
 
-// std::mutex Logger::mutex;
 
-// 同步屏障 - 用于线程间同步
 class Barrier {
  private:
   std::mutex mutex;
@@ -90,19 +83,16 @@ class Barrier {
   }
 };
 
-// 命令行参数解析
 struct AppArgs {
-  int nodeRank;          // 当前节点rank
-  int nodeCount;         // 总节点数
-  std::string masterIP;  // 主节点IP地址
-  int port;              // 通信端口
-  size_t dataSize;       // 数据大小(以float元素数量计)
-  int iterations;        // 迭代次数(性能测试)
+  int nodeRank;
+  int nodeCount;
+  std::string masterIP;
+  int port;
+  size_t dataSize;
+  int iterations;
 
-  // 默认构造函数
   AppArgs() : nodeRank(0), nodeCount(1), masterIP("localhost"), port(9999), dataSize(1000000), iterations(10) {}
 
-  // 从命令行解析参数
   static AppArgs parseArgs(int argc, char* argv[]) {
     AppArgs args;
 
@@ -126,7 +116,6 @@ struct AppArgs {
     return args;
   }
 
-  // 打印配置信息
   void printConfig() const {
     Logger::log("Configuration:");
     Logger::log("  Node Rank:", nodeRank);

@@ -6,7 +6,6 @@
 #include <iostream>
 #include <thread>
 
-// 平台特定的网络库支持
 #ifdef _WIN32
 #  include <winsock2.h>
 #  include <ws2tcpip.h>
@@ -27,7 +26,6 @@ typedef int SOCKET;
 
 TCPSocket::TCPSocket() : socketFD(INVALID_SOCKET), connected(false) {
 #ifdef _WIN32
-  // Windows上初始化网络库
   static bool wsaInitialized = false;
   if (!wsaInitialized) {
     WSADATA wsaData;
@@ -44,7 +42,6 @@ TCPSocket::TCPSocket() : socketFD(INVALID_SOCKET), connected(false) {
     Logger::log("Socket creation failed");
   }
 
-  // 设置TCP_NODELAY以减少延迟
   int flag = 1;
   if (setsockopt(socketFD, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int)) == SOCKET_ERROR) {
     Logger::log("Set TCP_NODELAY failed");
@@ -59,7 +56,6 @@ bool TCPSocket::listen(int port, int backlog) {
     return false;
   }
 
-  // 允许地址重用
   int opt = 1;
   if (setsockopt(socketFD, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) == SOCKET_ERROR) {
     Logger::log("setsockopt(SO_REUSEADDR) failed");
@@ -122,9 +118,7 @@ bool TCPSocket::connect(const std::string& host, int port) {
   serverAddr.sin_family = AF_INET;
   serverAddr.sin_port = htons(port);
 
-  // 将主机名转换为IP地址
   if (inet_pton(AF_INET, host.c_str(), &serverAddr.sin_addr) <= 0) {
-    // 尝试DNS解析
     struct addrinfo hints, *result = nullptr;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
@@ -141,7 +135,6 @@ bool TCPSocket::connect(const std::string& host, int port) {
     freeaddrinfo(result);
   }
 
-  // 尝试连接，带重试
   const int maxRetries = 10;
   for (int retry = 0; retry < maxRetries; retry++) {
     if (::connect(socketFD, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) != SOCKET_ERROR) {
@@ -152,7 +145,6 @@ bool TCPSocket::connect(const std::string& host, int port) {
 
     Logger::log("Connection attempt", retry + 1, "/", maxRetries, "to", host, ":", port, "failed, retrying...");
 
-    // 重试前等待
     std::this_thread::sleep_for(std::chrono::seconds(2));
   }
 
@@ -222,7 +214,6 @@ void TCPSocket::close() {
   connected = false;
 }
 
-// 在多节点间广播NCCL ID
 bool NCCLIdBroadcaster::broadcastNCCLId(ncclUniqueId& ncclId, int nodeRank, int worldSize, const std::string& masterIP,
                                         int port) {
   if (worldSize <= 0 || nodeRank < 0 || nodeRank >= worldSize) {
@@ -230,13 +221,11 @@ bool NCCLIdBroadcaster::broadcastNCCLId(ncclUniqueId& ncclId, int nodeRank, int 
     return false;
   }
 
-  // 单节点情况，不需要网络通信
   if (worldSize == 1) {
     return true;
   }
 
   if (nodeRank == 0) {
-    // 主节点：启动服务器并广播NCCL ID
     TCPSocket serverSocket;
     if (!serverSocket.listen(port)) {
       Logger::log("Master failed to listen on port", port);
@@ -245,7 +234,6 @@ bool NCCLIdBroadcaster::broadcastNCCLId(ncclUniqueId& ncclId, int nodeRank, int 
 
     std::vector<std::unique_ptr<TCPSocket>> clientSockets;
 
-    // 接受所有worker连接
     for (int i = 1; i < worldSize; i++) {
       auto clientSocket = serverSocket.accept();
       if (!clientSocket) {
@@ -253,7 +241,6 @@ bool NCCLIdBroadcaster::broadcastNCCLId(ncclUniqueId& ncclId, int nodeRank, int 
         return false;
       }
 
-      // 发送NCCL ID给worker
       if (!clientSocket->send(&ncclId, sizeof(ncclUniqueId))) {
         Logger::log("Failed to send NCCL ID to worker", i);
         return false;
@@ -264,14 +251,12 @@ bool NCCLIdBroadcaster::broadcastNCCLId(ncclUniqueId& ncclId, int nodeRank, int 
 
     Logger::log("Master successfully broadcast NCCL ID to all workers");
   } else {
-    // Worker节点：连接到master并接收NCCL ID
     TCPSocket clientSocket;
     if (!clientSocket.connect(masterIP, port)) {
       Logger::log("Worker", nodeRank, "failed to connect to master at", masterIP, ":", port);
       return false;
     }
 
-    // 接收NCCL ID
     if (!clientSocket.recv(&ncclId, sizeof(ncclUniqueId))) {
       Logger::log("Worker", nodeRank, "failed to receive NCCL ID from master");
       return false;
