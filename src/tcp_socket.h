@@ -1,10 +1,10 @@
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
+// TCP Socket类 - 用于节点间通信
 class TCPSocket {
  public:
   // 构造和销毁
@@ -30,16 +30,14 @@ class TCPSocket {
   bool isConnected() const;
   void close();
 
-  // 获取socket文件描述符
-  int getSocketFD() const { return socketFD; }
-
  private:
   int socketFD;
   bool connected;
 };
 
-// 辅助函数, 用于简化多机器间通信
-namespace TCPUtils {
-// 在多机环境中交换NCCL ID
-bool broadcastNCCLId(void* commId, size_t commIdSize, int rank, int worldSize, const std::string& masterIP, int port);
-}  // namespace TCPUtils
+// 多节点NCCL ID交换功能
+class NCCLIdBroadcaster {
+ public:
+  // 在多节点间广播NCCL ID
+  static bool broadcastNCCLId(ncclUniqueId& ncclId, int nodeRank, int worldSize, const std::string& masterIP, int port);
+};

@@ -3,6 +3,8 @@
 #include <cuda_runtime.h>
 #include <nccl.h>
 #include <iostream>
+#include <mutex>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -29,50 +31,57 @@
     }                                                                                                      \
   } while (0)
 
+#define NCCLCHECK(cmd) NCCL_CHECK(cmd)
+
+// 线程安全的日志
+class Logger {
+ private:
+  static std::mutex mutex;
+  int nodeRank;
+
+ public:
+  Logger(int nodeRank = 0) : nodeRank(nodeRank) {}
+
+  template <typename T>
+  static void log(const T& msg) {
+    std::lock_guard<std::mutex> lock(mutex);
+    std::cout << msg << std::endl;
+  }
+
+  template <typename T>
+  void nodeLog(const T& msg) {
+    std::lock_guard<std::mutex> lock(mutex);
+    std::cout << "[Node " << nodeRank << "] " << msg << std::endl;
+  }
+
+  template <typename T, typename... Args>
+  void nodeLog(const T& msg, Args... args) {
+    std::ostringstream oss;
+    oss << msg;
+    nodeLog(oss.str(), args...);
+  }
+};
+
+std::mutex Logger::mutex;
+
 // 设备选择和初始化辅助函数
 class NCCLHelper {
  public:
-  static void getLocalRank(int& localRank, int& localSize, int rank, int worldSize) {
-    // 从环境变量中获取本地信息（适用于大多数作业调度系统）
-    char* localRankStr = getenv("SLURM_LOCALID");
-    char* localSizeStr = getenv("SLURM_NTASKS_PER_NODE");
-
-    if (localRankStr && localSizeStr) {
-      localRank = atoi(localRankStr);
-      localSize = atoi(localSizeStr);
-    } else {
-      // 假设所有进程在同一节点上，或自行计算
-      localRank = rank;
-      localSize = worldSize;
-
-      // 这里可以添加其他作业调度器的环境变量支持
-    }
-  }
-
-  static void setDevice(int rank, int localRank) {
-    // 根据本地排名选择设备
+  // 获取当前节点上的GPU数量
+  static int getDeviceCount() {
     int deviceCount;
     CUDA_CHECK(cudaGetDeviceCount(&deviceCount));
-
-    if (deviceCount <= 0) {
-      throw std::runtime_error("No CUDA devices found");
-    }
-
-    int device = localRank % deviceCount;
-    CUDA_CHECK(cudaSetDevice(device));
-
-    std::cout << "Rank " << rank << " (local rank " << localRank << ") using CUDA device " << device << std::endl;
+    return deviceCount;
   }
 
   // 打印GPU信息
-  static void printDeviceInfo(int rank) {
-    int device;
-    CUDA_CHECK(cudaGetDevice(&device));
-
+  static void printDeviceInfo(int deviceId, int globalRank) {
     cudaDeviceProp prop;
-    CUDA_CHECK(cudaGetDeviceProperties(&prop, device));
+    CUDA_CHECK(cudaGetDeviceProperties(&prop, deviceId));
 
-    std::cout << "Rank " << rank << " using " << prop.name << " with " << prop.multiProcessorCount << " SMs and "
-              << (prop.totalGlobalMem / (1024 * 1024)) << " MB memory" << std::endl;
+    std::ostringstream oss;
+    oss << "GPU " << deviceId << " (global rank " << globalRank << "): " << prop.name << " with "
+        << prop.multiProcessorCount << " SMs, " << (prop.totalGlobalMem / (1024 * 1024)) << " MB memory";
+    Logger::log(oss.str());
   }
 };

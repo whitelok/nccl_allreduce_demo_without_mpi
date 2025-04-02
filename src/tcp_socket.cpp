@@ -1,8 +1,12 @@
 #include "tcp_socket.h"
+#include "utils.h"
+
+#include <chrono>
 #include <cstring>
 #include <iostream>
+#include <thread>
 
-// 针对不同平台的网络库支持
+// 平台特定的网络库支持
 #ifdef _WIN32
 #  include <winsock2.h>
 #  include <ws2tcpip.h>
@@ -21,24 +25,14 @@ typedef int socklen_t;
 typedef int SOCKET;
 #endif
 
-#include <chrono>
-#include <thread>
-
-// 调试输出宏
-#ifdef DEBUG
-#  define SOCKET_LOG(msg, ...) fprintf(stderr, "[TCP] " msg "\n", ##__VA_ARGS__)
-#else
-#  define SOCKET_LOG(msg, ...)
-#endif
-
 TCPSocket::TCPSocket() : socketFD(INVALID_SOCKET), connected(false) {
 #ifdef _WIN32
-  // 在Windows上初始化网络库
+  // Windows上初始化网络库
   static bool wsaInitialized = false;
   if (!wsaInitialized) {
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-      SOCKET_LOG("WSAStartup failed");
+      Logger::log("WSAStartup failed");
       return;
     }
     wsaInitialized = true;
@@ -47,13 +41,13 @@ TCPSocket::TCPSocket() : socketFD(INVALID_SOCKET), connected(false) {
 
   socketFD = socket(AF_INET, SOCK_STREAM, 0);
   if (socketFD == INVALID_SOCKET) {
-    SOCKET_LOG("Socket creation failed");
+    Logger::log("Socket creation failed");
   }
 
   // 设置TCP_NODELAY以减少延迟
   int flag = 1;
   if (setsockopt(socketFD, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int)) == SOCKET_ERROR) {
-    SOCKET_LOG("Set TCP_NODELAY failed");
+    Logger::log("Set TCP_NODELAY failed");
   }
 }
 
@@ -61,14 +55,14 @@ TCPSocket::~TCPSocket() { close(); }
 
 bool TCPSocket::listen(int port, int backlog) {
   if (socketFD == INVALID_SOCKET) {
-    SOCKET_LOG("Invalid socket in listen()");
+    Logger::log("Invalid socket in listen()");
     return false;
   }
 
   // 允许地址重用
   int opt = 1;
   if (setsockopt(socketFD, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) == SOCKET_ERROR) {
-    SOCKET_LOG("setsockopt(SO_REUSEADDR) failed");
+    Logger::log("setsockopt(SO_REUSEADDR) failed");
   }
 
   struct sockaddr_in serverAddr;
@@ -78,22 +72,22 @@ bool TCPSocket::listen(int port, int backlog) {
   serverAddr.sin_port = htons(port);
 
   if (bind(socketFD, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-    SOCKET_LOG("Bind failed on port %d", port);
+    Logger::log("Bind failed on port", port);
     return false;
   }
 
   if (::listen(socketFD, backlog) == SOCKET_ERROR) {
-    SOCKET_LOG("Listen failed on port %d", port);
+    Logger::log("Listen failed on port", port);
     return false;
   }
 
-  SOCKET_LOG("Server listening on port %d", port);
+  Logger::log("Server listening on port", port);
   return true;
 }
 
 std::unique_ptr<TCPSocket> TCPSocket::accept() {
   if (socketFD == INVALID_SOCKET) {
-    SOCKET_LOG("Invalid socket in accept()");
+    Logger::log("Invalid socket in accept()");
     return nullptr;
   }
 
@@ -102,7 +96,7 @@ std::unique_ptr<TCPSocket> TCPSocket::accept() {
   SOCKET clientSocketFD = ::accept(socketFD, (struct sockaddr*)&clientAddr, &clientAddrLen);
 
   if (clientSocketFD == INVALID_SOCKET) {
-    SOCKET_LOG("Accept failed");
+    Logger::log("Accept failed");
     return nullptr;
   }
 
@@ -112,14 +106,14 @@ std::unique_ptr<TCPSocket> TCPSocket::accept() {
 
   char clientIP[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &(clientAddr.sin_addr), clientIP, INET_ADDRSTRLEN);
-  SOCKET_LOG("Accepted connection from %s:%d", clientIP, ntohs(clientAddr.sin_port));
+  Logger::log("Accepted connection from", clientIP, ":", ntohs(clientAddr.sin_port));
 
   return clientSocket;
 }
 
 bool TCPSocket::connect(const std::string& host, int port) {
   if (socketFD == INVALID_SOCKET) {
-    SOCKET_LOG("Invalid socket in connect()");
+    Logger::log("Invalid socket in connect()");
     return false;
   }
 
@@ -138,7 +132,7 @@ bool TCPSocket::connect(const std::string& host, int port) {
 
     int status = getaddrinfo(host.c_str(), nullptr, &hints, &result);
     if (status != 0) {
-      SOCKET_LOG("Invalid address / Address not supported: %s", host.c_str());
+      Logger::log("Invalid address / Address not supported:", host);
       return false;
     }
 
@@ -152,23 +146,23 @@ bool TCPSocket::connect(const std::string& host, int port) {
   for (int retry = 0; retry < maxRetries; retry++) {
     if (::connect(socketFD, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) != SOCKET_ERROR) {
       connected = true;
-      SOCKET_LOG("Connected to %s:%d", host.c_str(), port);
+      Logger::log("Connected to", host, ":", port);
       return true;
     }
 
-    SOCKET_LOG("Connection attempt %d/%d to %s:%d failed, retrying...", retry + 1, maxRetries, host.c_str(), port);
+    Logger::log("Connection attempt", retry + 1, "/", maxRetries, "to", host, ":", port, "failed, retrying...");
 
     // 重试前等待
     std::this_thread::sleep_for(std::chrono::seconds(2));
   }
 
-  SOCKET_LOG("Failed to connect to %s:%d after %d retries", host.c_str(), port, maxRetries);
+  Logger::log("Failed to connect to", host, ":", port, "after", maxRetries, "retries");
   return false;
 }
 
 bool TCPSocket::send(const void* data, size_t size) {
   if (!isConnected()) {
-    SOCKET_LOG("Not connected in send()");
+    Logger::log("Not connected in send()");
     return false;
   }
 
@@ -178,7 +172,7 @@ bool TCPSocket::send(const void* data, size_t size) {
   while (totalSent < size) {
     int sent = ::send(socketFD, buffer + totalSent, size - totalSent, 0);
     if (sent == SOCKET_ERROR) {
-      SOCKET_LOG("Send failed");
+      Logger::log("Send failed");
       return false;
     }
 
@@ -190,7 +184,7 @@ bool TCPSocket::send(const void* data, size_t size) {
 
 bool TCPSocket::recv(void* buffer, size_t size) {
   if (!isConnected()) {
-    SOCKET_LOG("Not connected in recv()");
+    Logger::log("Not connected in recv()");
     return false;
   }
 
@@ -201,9 +195,9 @@ bool TCPSocket::recv(void* buffer, size_t size) {
     int received = ::recv(socketFD, buf + totalReceived, size - totalReceived, 0);
     if (received <= 0) {
       if (received == 0) {
-        SOCKET_LOG("Connection closed by peer");
+        Logger::log("Connection closed by peer");
       } else {
-        SOCKET_LOG("Recv failed");
+        Logger::log("Recv failed");
       }
       return false;
     }
@@ -228,25 +222,24 @@ void TCPSocket::close() {
   connected = false;
 }
 
-// 实现TCP工具函数
-namespace TCPUtils {
-
-bool broadcastNCCLId(void* commId, size_t commIdSize, int rank, int worldSize, const std::string& masterIP, int port) {
-  if (worldSize <= 0 || rank < 0 || rank >= worldSize) {
-    SOCKET_LOG("Invalid rank (%d) or world size (%d)", rank, worldSize);
+// 在多节点间广播NCCL ID
+bool NCCLIdBroadcaster::broadcastNCCLId(ncclUniqueId& ncclId, int nodeRank, int worldSize, const std::string& masterIP,
+                                        int port) {
+  if (worldSize <= 0 || nodeRank < 0 || nodeRank >= worldSize) {
+    Logger::log("Invalid rank or world size");
     return false;
   }
 
-  // 如果是单机场景，不需要进行网络通信
+  // 单节点情况，不需要网络通信
   if (worldSize == 1) {
     return true;
   }
 
-  if (rank == 0) {
-    // 主进程：启动服务器并广播NCCL ID
+  if (nodeRank == 0) {
+    // 主节点：启动服务器并广播NCCL ID
     TCPSocket serverSocket;
     if (!serverSocket.listen(port)) {
-      SOCKET_LOG("Master failed to listen on port %d", port);
+      Logger::log("Master failed to listen on port", port);
       return false;
     }
 
@@ -256,38 +249,36 @@ bool broadcastNCCLId(void* commId, size_t commIdSize, int rank, int worldSize, c
     for (int i = 1; i < worldSize; i++) {
       auto clientSocket = serverSocket.accept();
       if (!clientSocket) {
-        SOCKET_LOG("Failed to accept connection from worker %d", i);
+        Logger::log("Failed to accept connection from worker", i);
         return false;
       }
 
       // 发送NCCL ID给worker
-      if (!clientSocket->send(commId, commIdSize)) {
-        SOCKET_LOG("Failed to send NCCL ID to worker %d", i);
+      if (!clientSocket->send(&ncclId, sizeof(ncclUniqueId))) {
+        Logger::log("Failed to send NCCL ID to worker", i);
         return false;
       }
 
       clientSockets.push_back(std::move(clientSocket));
     }
 
-    SOCKET_LOG("Master successfully broadcast NCCL ID to all workers");
+    Logger::log("Master successfully broadcast NCCL ID to all workers");
   } else {
-    // Worker进程：连接到master并接收NCCL ID
+    // Worker节点：连接到master并接收NCCL ID
     TCPSocket clientSocket;
     if (!clientSocket.connect(masterIP, port)) {
-      SOCKET_LOG("Worker %d failed to connect to master at %s:%d", rank, masterIP.c_str(), port);
+      Logger::log("Worker", nodeRank, "failed to connect to master at", masterIP, ":", port);
       return false;
     }
 
     // 接收NCCL ID
-    if (!clientSocket.recv(commId, commIdSize)) {
-      SOCKET_LOG("Worker %d failed to receive NCCL ID from master", rank);
+    if (!clientSocket.recv(&ncclId, sizeof(ncclUniqueId))) {
+      Logger::log("Worker", nodeRank, "failed to receive NCCL ID from master");
       return false;
     }
 
-    SOCKET_LOG("Worker %d successfully received NCCL ID from master", rank);
+    Logger::log("Worker", nodeRank, "successfully received NCCL ID from master");
   }
 
   return true;
 }
-
-}  // namespace TCPUtils
